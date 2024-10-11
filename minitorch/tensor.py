@@ -13,24 +13,24 @@ from .tensor_data import TensorData
 
 # Comment these out if not yet implemented
 from .tensor_functions import (
-    # EQ,
-    # LT,
-    # Add,
-    # All,
+    Add,
+    All,
+    EQ,
+    LT,
     Copy,
-    # Exp,
+    Exp,
     Inv,
-    # IsClose,
-    # Log,
+    IsClose,
+    Log,
     MatMul,
     Mul,
-    # Neg,
-    # Permute,
-    # ReLU,
-    # Sigmoid,
-    # Sum,
-    # View,
-    # tensor,
+    Neg,
+    Permute,
+    ReLU,
+    Sigmoid,
+    Sum,
+    View,
+    tensor,
 )
 
 if TYPE_CHECKING:
@@ -70,8 +70,6 @@ class Tensor:
     _tensor: TensorData
     unique_id: int
     name: str
-    size: int
-    dims: int
 
     def __init__(
         self,
@@ -96,21 +94,136 @@ class Tensor:
 
         self.f = backend
 
-    def __add__(self, other: Tensor) -> Tensor:
-        """Add two tensors using the add_zip method."""
-        return self.f.add_zip(self, other)
+    @property
+    def size(self) -> int:
+        """Return the total number of elements in the tensor."""
+        return self._tensor.size
 
-    def __sub__(self, other: Tensor) -> Tensor:
-        """Subtract two tensors using the add_zip and neg_map methods."""
-        return self.f.add_zip(self, other.f.neg_map(other))
+    @property
+    def dims(self) -> int:
+        """Return the number of dimensions of the tensor."""
+        return self._tensor.dims
+
+    def __add__(self, other: TensorLike) -> Tensor:
+        """Element-wise addition of two tensors."""
+        other = self._ensure_tensor(other)
+        return Add.apply(self, other)
+
+    def __sub__(self, other: TensorLike) -> Tensor:
+        """Element-wise subtraction of two tensors."""
+        other = self._ensure_tensor(other)
+        return Add.apply(self, Neg.apply(other))
+
+    def __mul__(self, other: TensorLike) -> Tensor:
+        """Element-wise multiplication of two tensors."""
+        other = self._ensure_tensor(other)
+        return Mul.apply(self, other)
+
+    def __lt__(self, other: TensorLike) -> Tensor:
+        """Element-wise less-than comparison."""
+        other = self._ensure_tensor(other)
+        return LT.apply(self, other)
+
+    def __eq__(self, other: TensorLike) -> Tensor:
+        """Element-wise equality comparison."""
+        other = self._ensure_tensor(other)
+        return EQ.apply(self, other)
+
+    def __gt__(self, other: TensorLike) -> Tensor:
+        """Element-wise greater-than comparison."""
+        other = self._ensure_tensor(other)
+        return LT.apply(other, self)
+
+    def __neg__(self) -> Tensor:
+        """Element-wise negation of the tensor."""
+        return Neg.apply(self)
+
+    def __radd__(self, other: TensorLike) -> Tensor:
+        """Element-wise addition (reversed operands)."""
+        # Addition is commutative
+        return self.__add__(other)
+
+    def __rmul__(self, other: TensorLike) -> Tensor:
+        """Element-wise multiplication (reversed operands)."""
+        # Multiplication is commutative
+        return self.__mul__(other)
+
+    def all(self, dim: Optional[int] = None) -> Tensor:
+        """Check if all elements are non-zero along a dimension."""
+        if dim is None:
+            # Flatten the tensor and multiply over all elements
+            flat_self = View.apply(self.contiguous(), tensor([int(operators.prod(self.shape))]))
+            dim_tensor = tensor([0], backend=self.backend)
+            return All.apply(flat_self, dim_tensor)
+        else:
+            dim_tensor = tensor([dim], backend=self.backend)
+            return All.apply(self, dim_tensor)
+
+    def is_close(self, other: TensorLike) -> Tensor:
+        """Element-wise check for approximate equality."""
+        other = self._ensure_tensor(other)
+        return IsClose.apply(self, other)
+
+    def sigmoid(self) -> Tensor:
+        """Apply the sigmoid function element-wise."""
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Tensor:
+        """Apply the ReLU function element-wise."""
+        return ReLU.apply(self)
+
+    def log(self) -> Tensor:
+        """Apply the natural logarithm element-wise."""
+        return Log.apply(self)
+
+    def exp(self) -> Tensor:
+        """Apply the exponential function element-wise."""
+        return Exp.apply(self)
+
+    def sum(self, dim: Optional[int] = None) -> Tensor:
+        """Sum of tensor elements over a given dimension."""
+        if dim is None:
+            # Sum over all elements
+            flat_self = View.apply(self.contiguous(), tensor([int(operators.prod(self.shape))]))
+            dim_tensor = tensor([0], backend=self.backend)
+            return Sum.apply(flat_self, dim_tensor)
+        else:
+            dim_tensor = tensor([dim], backend=self.backend)
+            return Sum.apply(self, dim_tensor)
+
+    def mean(self, dim: Optional[int] = None) -> Tensor:
+        """Mean of tensor elements over a given dimension."""
+        total = self.sum(dim)
+        if dim is None:
+            count = self.size
+        else:
+            count = self.shape[dim]
+        return total / count
+
+    def permute(self, *order: int) -> Tensor:
+        """Permute the dimensions of the tensor."""
+        order_tensor = tensor(order, backend=self.backend)
+        return Permute.apply(self, order_tensor)
+
+    def view(self, *shape: int) -> Tensor:
+        """Return a new tensor with the same data but a different shape."""
+        # Ensure that the total number of elements remains the same
+        if int(operators.prod(shape)) != self.size:
+            raise ValueError(
+                f"Cannot view tensor of size {self.size} into shape {shape}"
+            )
+        # Ensure the tensor is contiguous in memory
+        assert self._tensor.is_contiguous(), "Tensor must be contiguous to view."
+        shape_tensor = tensor(shape, backend=self.backend)
+        return View.apply(self, shape_tensor)
+
+    def zero_grad_(self) -> None:
+        """Set the gradient of the tensor to None."""
+        self.grad = None
 
     def requires_grad_(self, x: bool) -> None:
         """Set whether this variable requires gradient computation"""
         self.history = History()
-
-    def zero_grad_(self) -> None:
-        """Zero out the gradient of this variable"""
-        self.grad = None
 
     def requires_grad(self) -> bool:
         """Return whether this variable requires gradient computation"""
