@@ -13,24 +13,24 @@ from .tensor_data import TensorData
 
 # Comment these out if not yet implemented
 from .tensor_functions import (
-    EQ,
-    LT,
-    Add,
-    All,
+    # EQ,
+    # LT,
+    # Add,
+    # All,
     Copy,
-    Exp,
+    # Exp,
     Inv,
-    IsClose,
-    Log,
+    # IsClose,
+    # Log,
     MatMul,
     Mul,
-    Neg,
-    Permute,
-    ReLU,
-    Sigmoid,
-    Sum,
-    View,
-    tensor,
+    # Neg,
+    # Permute,
+    # ReLU,
+    # Sigmoid,
+    # Sum,
+    # View,
+    # tensor,
 )
 
 if TYPE_CHECKING:
@@ -70,6 +70,8 @@ class Tensor:
     _tensor: TensorData
     unique_id: int
     name: str
+    size: int
+    dims: int
 
     def __init__(
         self,
@@ -94,10 +96,24 @@ class Tensor:
 
         self.f = backend
 
+    def __add__(self, other: Tensor) -> Tensor:
+        """Add two tensors using the add_zip method."""
+        return self.f.add_zip(self, other)
+
+    def __sub__(self, other: Tensor) -> Tensor:
+        """Subtract two tensors using the add_zip and neg_map methods."""
+        return self.f.add_zip(self, other.f.neg_map(other))
+
     def requires_grad_(self, x: bool) -> None:
+        """Set whether this variable requires gradient computation"""
         self.history = History()
 
+    def zero_grad_(self) -> None:
+        """Zero out the gradient of this variable"""
+        self.grad = None
+
     def requires_grad(self) -> bool:
+        """Return whether this variable requires gradient computation"""
         return self.history is not None
 
     def to_numpy(self) -> npt.NDArray[np.float64]:
@@ -194,6 +210,7 @@ class Tensor:
         # END CODE CHANGE (2021)
 
     def zeros(self, shape: Optional[UserShape] = None) -> Tensor:
+        """Create a tensor of zeros with the same backend as self"""
         def zero(shape: UserShape) -> Tensor:
             return Tensor.make(
                 [0.0] * int(operators.prod(shape)), shape, backend=self.backend
@@ -239,14 +256,21 @@ class Tensor:
         return self.history is not None and self.history.last_fn is None
 
     def is_constant(self) -> bool:
+        """True if this variable is a constant (no `history`)"""
         return self.history is None
 
     @property
     def parents(self) -> Iterable[Variable]:
+        """Return the parents of this variable.
+        This method is used to get the inputs of the function that created this variable.
+        """
         assert self.history is not None
         return self.history.inputs
 
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Apply the chain rule to the backward pass.
+        This method is used to propagate the gradient of the output through the function that created this variable.
+        """
         h = self.history
         assert h is not None
         assert h.last_fn is not None
@@ -260,6 +284,9 @@ class Tensor:
         ]
 
     def backward(self, grad_output: Optional[Tensor] = None) -> None:
+        """Backpropagate the gradient of the output through the function that created this variable.
+        If `grad_output` is not provided, it will be calculated using the chain rule.
+        """
         if grad_output is None:
             assert self.shape == (1,), "Must provide grad_output if non-scalar"
             grad_output = Tensor.make([1.0], (1,), backend=self.backend)
