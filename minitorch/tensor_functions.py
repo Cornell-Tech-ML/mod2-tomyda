@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -102,12 +102,26 @@ class Add(Function):
 
 class All(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
-        """Return 1 if all are true"""
-        if dim is not None:
-            return a.f.mul_reduce(a, int(dim.item()))
+    def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+        """Return 1 if all elements are true along a dimension or all dimensions if dim is None."""
+        if dim is None:
+            ctx.save_for_backward(a.shape)
+            result = a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
         else:
-            return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
+            dim_int = int(dim.item())
+            ctx.save_for_backward(a.shape, dim_int)
+            result = a.f.mul_reduce(a, dim_int)
+        return result
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for All function (zero gradients)."""
+        saved = ctx.saved_values
+        if len(saved) == 1:
+            (shape,) = saved
+        else:
+            shape, _ = saved
+        return zeros(shape, backend=grad_output.backend)
 
 class Mul(Function):
     @staticmethod
@@ -136,9 +150,9 @@ class Sigmoid(Function):
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Backward pass for the sigmoid function."""
         (sigmoid_t1,) = ctx.saved_values
-        one_minus_sigmoid = sigmoid_t1.f.add_scalar_map(sigmoid_t1, -1.0)
-        derivative = sigmoid_t1.f.mul_zip(sigmoid_t1, one_minus_sigmoid)
-        return grad_output.f.mul_zip(grad_output, derivative)
+        one_minus_sigmoid = 1.0 - sigmoid_t1
+        derivative = sigmoid_t1 * one_minus_sigmoid
+        return grad_output * derivative
 
 class ReLU(Function):
     @staticmethod
@@ -151,8 +165,8 @@ class ReLU(Function):
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Backward pass for the ReLU function."""
         (t1,) = ctx.saved_values
-        relu_grad = t1.f.relu_back_map(t1)
-        return grad_output.f.mul_zip(grad_output, relu_grad)
+        relu_grad = t1.f.relu_back_zip(t1)
+        return grad_output * relu_grad
 
 class Log(Function):
     @staticmethod
@@ -184,37 +198,53 @@ class Exp(Function):
 
 class Sum(Function):
     @staticmethod
-    def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
-        """Sum over a specified dimension."""
-        dim_int = int(dim.item())
-        ctx.save_for_backward(t1.shape)
-        return t1.f.add_reduce(t1, dim_int)
+    def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+        """Sum over a specified dimension or all dimensions if dim is None."""
+        if dim is None:
+            # Sum over all elements
+            ctx.save_for_backward(t1.shape)
+            total = t1.f.add_reduce(t1.contiguous().view(int(operators.prod(t1.shape))), 0)
+            return total
+        else:
+            dim_int = int(dim.item())
+            ctx.save_for_backward(t1.shape, dim_int)
+            return t1.f.add_reduce(t1, dim_int)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Backward pass for the sum function."""
-        (shape,) = ctx.saved_values
-        # Create a zeros tensor with the original input shape
-        zeros_tensor = Tensor.make(
-            [0.0] * int(operators.prod(shape)), shape, backend=grad_output.backend
-        )
-        # Broadcast grad_output by adding it to zeros_tensor
-        grad_input = grad_output + zeros_tensor
-        return grad_input
+        saved = ctx.saved_values
+        if len(saved) == 1:
+            # Sum over all elements
+            (shape,) = saved
+            # Expand grad_output to match the original shape
+            grad_input = grad_output + zeros(shape, backend=grad_output.backend)
+            return grad_input
+        else:
+            shape, dim = saved
+            # Reshape grad_output to add back the reduced dimension
+            grad_shape = list(grad_output.shape)
+            grad_shape.insert(dim, 1)
+            grad_output_reshaped = grad_output.contiguous().view(*grad_shape)
+            # Use broadcasting to expand grad_output_reshaped to the original shape
+            grad_input = grad_output_reshaped + zeros(shape, backend=grad_output.backend)
+            return grad_input
+
 
 class LT(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
         """Element-wise less-than comparison."""
+        ctx.save_for_backward(t1.shape, t2.shape)
         return t1.f.lt_zip(t1, t2)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """Backward pass for less-than comparison (zero gradients)."""
-        t1, t2 = ctx.saved_values
-        return minitorch.zeros(t1.shape), minitorch.zeros(t2.shape)
-
-
+        t1_shape, t2_shape = ctx.saved_values
+        grad_t1 = minitorch.zeros(t1_shape, backend=grad_output.backend)
+        grad_t2 = minitorch.zeros(t2_shape, backend=grad_output.backend)
+        return grad_t1, grad_t2
 
 class EQ(Function):
     @staticmethod
@@ -226,8 +256,10 @@ class EQ(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """Backward pass for equality comparison (zero gradients)."""
-        t1, t2 = ctx.saved_values
-        return minitorch.zeros(t1.shape), minitorch.zeros(t2.shape)
+        t1_shape, t2_shape = ctx.saved_values
+        grad_t1 = minitorch.zeros(t1_shape, backend=grad_output.backend)
+        grad_t2 = minitorch.zeros(t2_shape, backend=grad_output.backend)
+        return grad_t1, grad_t2
 
 class IsClose(Function):
     @staticmethod
@@ -238,8 +270,10 @@ class IsClose(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """No backward pass for IsClose (zero gradients)."""
-        t1, t2 = ctx.saved_values
-        return minitorch.zeros(t1.shape), minitorch.zeros(t2.shape)
+        t1_shape, t2_shape = ctx.saved_values
+        grad_t1 = minitorch.zeros(t1_shape, backend=grad_output.backend)
+        grad_t2 = minitorch.zeros(t2_shape, backend=grad_output.backend)
+        return grad_t1, grad_t2
 
 
 class Permute(Function):
@@ -251,13 +285,14 @@ class Permute(Function):
         return t1._new(t1._tensor.permute(*order_list))
 
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
         """Backward pass for permutation (reverse permutation)."""
-        order_list = ctx.saved_values[0]
+        (order_list,) = ctx.saved_values
         inverse_order = [0] * len(order_list)
         for i, j in enumerate(order_list):
             inverse_order[j] = i
-        return grad_output._new(grad_output._tensor.permute(*inverse_order))
+        grad_input = grad_output._new(grad_output._tensor.permute(*inverse_order))
+        return grad_input, None
 
 class View(Function):
     @staticmethod

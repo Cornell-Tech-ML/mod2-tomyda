@@ -114,6 +114,11 @@ class Tensor:
         other = self._ensure_tensor(other)
         return Add.apply(self, Neg.apply(other))
 
+    def __rsub__(self, other: TensorLike) -> Tensor:
+        """Subtract self from other (reversed operands)."""
+        other = self._ensure_tensor(other)
+        return Add.apply(other, Neg.apply(self))
+
     def __mul__(self, other: TensorLike) -> Tensor:
         """Element-wise multiplication of two tensors."""
         other = self._ensure_tensor(other)
@@ -181,12 +186,10 @@ class Tensor:
         return Exp.apply(self)
 
     def sum(self, dim: Optional[int] = None) -> Tensor:
-        """Sum of tensor elements over a given dimension."""
+        """Sum of tensor elements over a given dimension or all dimensions if dim is None."""
         if dim is None:
             # Sum over all elements
-            flat_self = View.apply(self.contiguous(), tensor([int(operators.prod(self.shape))]))
-            dim_tensor = tensor([0], backend=self.backend)
-            return Sum.apply(flat_self, dim_tensor)
+            return Sum.apply(self)
         else:
             dim_tensor = tensor([dim], backend=self.backend)
             return Sum.apply(self, dim_tensor)
@@ -391,10 +394,11 @@ class Tensor:
 
         x = h.last_fn._backward(h.ctx, d_output)
         assert len(x) == len(h.inputs), f"Bug in function {h.last_fn}"
-        return [
-            (inp, inp.expand(self._ensure_tensor(d_in)))
-            for inp, d_in in zip(h.inputs, x)
-        ]
+        result = []
+        for inp, d_in in zip(h.inputs, x):
+            if d_in is not None:
+                result.append((inp, inp.expand(self._ensure_tensor(d_in))))
+        return result
 
     def backward(self, grad_output: Optional[Tensor] = None) -> None:
         """Backpropagate the gradient of the output through the function that created this variable.
