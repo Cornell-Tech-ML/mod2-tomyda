@@ -165,8 +165,8 @@ class ReLU(Function):
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Backward pass for the ReLU function."""
         (t1,) = ctx.saved_values
-        relu_grad = t1.f.relu_back_zip(t1)
-        return grad_output * relu_grad
+        return t1.f.relu_back_zip(t1, grad_output)
+
 
 class Log(Function):
     @staticmethod
@@ -250,16 +250,17 @@ class EQ(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
         """Element-wise equality comparison."""
-        ctx.save_for_backward(t1, t2)
+        ctx.save_for_backward(t1.shape, t2.shape)
         return t1.f.eq_zip(t1, t2)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """Backward pass for equality comparison (zero gradients)."""
         t1_shape, t2_shape = ctx.saved_values
-        grad_t1 = minitorch.zeros(t1_shape, backend=grad_output.backend)
-        grad_t2 = minitorch.zeros(t2_shape, backend=grad_output.backend)
+        grad_t1 = zeros(t1_shape, backend=grad_output.backend)
+        grad_t2 = zeros(t2_shape, backend=grad_output.backend)
         return grad_t1, grad_t2
+
 
 class IsClose(Function):
     @staticmethod
