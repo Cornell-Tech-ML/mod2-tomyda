@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from sympy import topological_sort
 
 from . import operators
 from .autodiff import Context, Variable, backpropagate

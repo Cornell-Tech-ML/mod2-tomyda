@@ -7,7 +7,6 @@ import numpy as np
 
 from dataclasses import field
 
-from minitorch.module import Parameter
 from .autodiff import Context, Variable, backpropagate, central_difference
 from .scalar_functions import (
     Add,
