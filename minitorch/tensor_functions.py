@@ -74,6 +74,7 @@ class Neg(Function):
         """Backward pass for the negation function."""
         return grad_output.f.neg_map(grad_output)
 
+
 class Inv(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -130,6 +131,7 @@ class Sigmoid(Function):
         """Backward pass for the sigmoid function."""
         sigma: Tensor = ctx.saved_values[0]
         return sigma * (-sigma + 1.0) * grad_output
+
 
 class ReLU(Function):
     @staticmethod
@@ -314,10 +316,12 @@ def zeros(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
     """Produce a zero tensor of size `shape`.
 
     Args:
+    ----
         shape : shape of tensor
         backend : tensor backend
 
     Returns:
+    -------
         new tensor
 
     """
@@ -334,11 +338,13 @@ def rand(
     """Produce a random tensor of size `shape`.
 
     Args:
+    ----
         shape : shape of tensor
         backend : tensor backend
         requires_grad : turn on autodifferentiation
 
     Returns:
+    -------
         :class:`Tensor` : new tensor
 
     """
@@ -357,12 +363,14 @@ def _tensor(
     """Produce a tensor with data ls and shape `shape`.
 
     Args:
+    ----
         ls: data for tensor
         shape: shape of tensor
         backend: tensor backend
         requires_grad: turn on autodifferentiation
 
     Returns:
+    -------
         new tensor
 
     """
@@ -377,11 +385,13 @@ def tensor(
     """Produce a tensor with data and shape from ls
 
     Args:
+    ----
         ls: data for tensor
         backend : tensor backend
         requires_grad : turn on autodifferentiation
 
     Returns:
+    -------
         :class:`Tensor` : new tensor
 
     """
@@ -450,4 +460,3 @@ but was expecting derivative %f from central difference.
             1e-2,
             err_msg=err_msg % (f, vals, x.grad[ind], i, ind, check),
         )
-

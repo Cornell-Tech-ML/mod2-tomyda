@@ -138,7 +138,7 @@ class SimpleOps(TensorOps):
 
     @staticmethod
     def zip(
-        fn: Callable[[float, float], float]
+        fn: Callable[[float, float], float],
     ) -> Callable[["Tensor", "Tensor"], "Tensor"]:
         """Higher-order tensor zip function ::
 
@@ -231,7 +231,9 @@ class SimpleOps(TensorOps):
     def matrix_multiply(a: "Tensor", b: "Tensor") -> "Tensor":
         """Matrix multiplication with batch support"""
         # Ensure the inner dimensions match
-        assert a.shape[-1] == b.shape[-2], "Inner dimensions must agree for matrix multiplication"
+        assert (
+            a.shape[-1] == b.shape[-2]
+        ), "Inner dimensions must agree for matrix multiplication"
 
         # Determine output shape
         out_shape = tuple(a.shape[:-1]) + tuple(b.shape[-1:])
@@ -437,4 +439,3 @@ def tensor_reduce(
 
 
 SimpleBackend = TensorBackend(SimpleOps)
-
