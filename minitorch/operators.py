@@ -62,7 +62,7 @@ def neg(x: float) -> float:
         float: The negation of x.
 
     """
-    return float(-x)
+    return -x
 
 
 # lt - Checks if one number is less than another
@@ -129,7 +129,7 @@ def is_close(x: float, y: float) -> bool:
         bool: True if x is close to y, False otherwise.
 
     """
-    return abs(x - y) < 1e-2
+    return (x - y < 1e-2) and (y - x < 1e-2)
 
 
 def sigmoid(x: float) -> float:
@@ -144,7 +144,10 @@ def sigmoid(x: float) -> float:
         float: The sigmoid of x.
 
     """
-    return 1.0 / (1.0 + math.exp(-x))
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    else:
+        return math.exp(x) / (1.0 + math.exp(x))
 
 
 def relu(x: float) -> float:
@@ -159,8 +162,9 @@ def relu(x: float) -> float:
         float: The ReLU of x.
 
     """
-    return float(x) if x > 0.0 else 0.0
+    return x if x > 0 else 0.0
 
+EPS = 1e-6
 
 def log(x: float) -> float:
     """Calculate the natural logarithm of x.
@@ -174,7 +178,7 @@ def log(x: float) -> float:
         float: The natural logarithm of x.
 
     """
-    return math.log(x)
+    return math.log(x + EPS)
 
 
 def exp(x: float) -> float:
@@ -220,7 +224,7 @@ def log_back(x: float, d: float) -> float:
         float: The result of the computation.
 
     """
-    return d / x
+    return d / (x + EPS)
 
 
 def inv_back(x: float, d: float) -> float:
@@ -236,7 +240,7 @@ def inv_back(x: float, d: float) -> float:
         float: The result of the computation.
 
     """
-    return -d / (x * x)
+    return -(1.0 / x**2) * d
 
 
 def relu_back(x: float, d: float) -> float:
@@ -252,7 +256,7 @@ def relu_back(x: float, d: float) -> float:
         float: The result of the computation.
 
     """
-    return d if x > 0 else 0
+    return d if x > 0 else 0.0
 
 
 # ## Task 0.3

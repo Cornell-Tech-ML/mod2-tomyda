@@ -106,7 +106,7 @@ def xor(N: int) -> Graph:
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
-        y1 = 1 if x_1 < 0.5 and x_2 > 0.5 or x_1 > 0.5 and x_2 < 0.5 else 0
+        y1 = 1 if ((x_1 < 0.5 and x_2 > 0.5) or (x_1 > 0.5 and x_2 < 0.5)) else 0
         y.append(y1)
     return Graph(N, X, y)
 
@@ -126,7 +126,7 @@ def circle(N: int) -> Graph:
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
-        x1, x2 = x_1 - 0.5, x_2 - 0.5
+        x1, x2 = (x_1 - 0.5, x_2 - 0.5)
         y1 = 1 if x1 * x1 + x2 * x2 > 0.1 else 0
         y.append(y1)
     return Graph(N, X, y)
