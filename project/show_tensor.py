@@ -16,11 +16,11 @@ initial_matrix = np.vstack(
 axis_default = ["i", "k", "j"]
 
 
-def permute(mat, x, y):
+def permute(mat: np.ndarray, x: int, y: int) -> np.ndarray:
     return mat.transpose(x, y)
 
 
-def plot_matrix(x, y, title, w=300, h=500, bg="white"):
+def plot_matrix(x , y, title, w=300, h=500, bg="white"):
     data = [
         go.Scatter(
             hoverinfo="skip",
