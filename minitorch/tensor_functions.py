@@ -296,7 +296,7 @@ class Permute(Function):
         inverse_order = [0] * len(order_list)
         for i, j in enumerate(order_list):
             inverse_order[j] = i
-        grad_input = grad_output._new(grad_output._tensor.permute(*inverse_order))
+        grad_input = grad_output.permute(*inverse_order).detach()
         return grad_input, None
 
 

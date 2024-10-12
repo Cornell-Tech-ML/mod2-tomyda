@@ -106,7 +106,11 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
     queue = topological_sort(variable)
     derivatives = {}
     derivatives[variable.unique_id] = deriv
+
     for var in queue:
+        if var.unique_id not in derivatives:
+            continue
+
         deriv = derivatives[var.unique_id]
         if var.is_leaf():
             var.accumulate_derivative(deriv)
