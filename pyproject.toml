@@ -85,6 +85,7 @@ lint.ignore = [
     "N803",
     "N802",
     "N806",
+    "D203",
     "D400",
     "D401",
     "D105",
@@ -96,7 +97,7 @@ lint.ignore = [
     "D107",
     "D213",
     "ANN204",
-    "ANN102"
+    "ANN102",
 ]
 lint.select = ["D", "E", "F", "N", "ANN"]
 lint.fixable = [
