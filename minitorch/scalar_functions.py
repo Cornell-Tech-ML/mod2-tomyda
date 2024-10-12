@@ -84,6 +84,7 @@ class Add(ScalarFunction):
         """Backward pass for addition"""
         return d_output, d_output
 
+
 class Log(ScalarFunction):
     """Log function $f(x) = log(x)$"""
 
@@ -98,6 +99,7 @@ class Log(ScalarFunction):
         """Backward pass for logarithm"""
         (a,) = ctx.saved_values
         return operators.log_back(a, d_output)
+
 
 class Mul(ScalarFunction):
     """Multiply function f(x, y) = x * y"""
@@ -129,6 +131,7 @@ class Inv(ScalarFunction):
         """Backward pass for inverse"""
         (a,) = ctx.saved_values
         return operators.inv_back(a, d_output)
+
 
 class Neg(ScalarFunction):
     """Negation function f(x) = -x"""
@@ -192,6 +195,7 @@ class Exp(ScalarFunction):
         """Backward pass for exponential"""
         out: float = ctx.saved_values[0]
         return out * d_output
+
 
 class Lt(ScalarFunction):
     """Less-than function f(x, y) = x < y"""

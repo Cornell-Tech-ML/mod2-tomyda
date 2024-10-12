@@ -6,6 +6,7 @@ from typing import Any, Iterable, List, Tuple, Protocol
 ## Task 1.1
 # Central Difference calculation
 
+
 def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) -> Any:
     r"""Computes an approximation to the derivative of `f` with respect to one arg.
 
@@ -32,7 +33,9 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
     return delta / (2 * epsilon)
     # END ASSIGN1.1
 
+
 variable_count = 1
+
 
 class Variable(Protocol):
     def accumulate_derivative(self, x: Any) -> None:
@@ -52,7 +55,6 @@ class Variable(Protocol):
         """Check if the node is a constant node."""
         ...
 
-
     @property
     def parents(self) -> Iterable["Variable"]:
         """Return the parent variables of this variable."""
@@ -61,6 +63,7 @@ class Variable(Protocol):
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
         """Apply the chain rule to compute gradients."""
         ...
+
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
     """Computes the topological order of the computation graph.
@@ -92,6 +95,7 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     return order
     # END ASSIGN1.4
 
+
 def backpropagate(variable: Variable, deriv: Any) -> None:
     """Runs backpropagation on the computation graph in order to
     compute derivatives for the leave nodes.
@@ -121,6 +125,7 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
                 derivatives.setdefault(v.unique_id, 0.0)
                 derivatives[v.unique_id] = derivatives[v.unique_id] + d
     # END ASSIGN1.4
+
 
 @dataclass
 class Context:

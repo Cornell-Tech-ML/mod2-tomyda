@@ -100,13 +100,16 @@ class Add(Function):
         """Add the gradients"""
         return grad_output, grad_output
 
+
 class All(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
         """Return 1 if all elements are true along a dimension or all dimensions if dim is None."""
         if dim is None:
             ctx.save_for_backward(a.shape)
-            result = a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
+            result = a.f.mul_reduce(
+                a.contiguous().view(int(operators.prod(a.shape))), 0
+            )
         else:
             dim_int = int(dim.item())
             ctx.save_for_backward(a.shape, dim_int)
@@ -123,6 +126,7 @@ class All(Function):
             shape, _ = saved
         return zeros(shape, backend=grad_output.backend), None
 
+
 class Mul(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
@@ -137,6 +141,7 @@ class Mul(Function):
         grad_t1 = grad_output.f.mul_zip(grad_output, t2)
         grad_t2 = grad_output.f.mul_zip(grad_output, t1)
         return grad_t1, grad_t2
+
 
 class Sigmoid(Function):
     @staticmethod
@@ -153,6 +158,7 @@ class Sigmoid(Function):
         one_minus_sigmoid = 1.0 - sigmoid_t1
         derivative = sigmoid_t1 * one_minus_sigmoid
         return grad_output * derivative
+
 
 class ReLU(Function):
     @staticmethod
@@ -182,6 +188,7 @@ class Log(Function):
         inv_t1 = t1.f.inv_map(t1)
         return grad_output.f.mul_zip(grad_output, inv_t1)
 
+
 class Exp(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -195,6 +202,7 @@ class Exp(Function):
         """Backward pass for the exponential function."""
         (exp_t1,) = ctx.saved_values
         return grad_output.f.mul_zip(grad_output, exp_t1)
+
 
 class Sum(Function):
     @staticmethod
@@ -249,6 +257,7 @@ class LT(Function):
         grad_t1 = minitorch.zeros(t1_shape, backend=grad_output.backend)
         grad_t2 = minitorch.zeros(t2_shape, backend=grad_output.backend)
         return grad_t1, grad_t2
+
 
 class EQ(Function):
     @staticmethod
@@ -376,6 +385,7 @@ def zeros(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
         [0.0] * int(operators.prod(shape)), shape, backend=backend
     )
 
+
 def ones(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
     """Produce a zero tensor of size `shape`.
 
@@ -392,6 +402,7 @@ def ones(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
     return minitorch.Tensor.make(
         [1.0] * int(operators.prod(shape)), shape, backend=backend
     )
+
 
 def rand(
     shape: UserShape,

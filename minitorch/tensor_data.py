@@ -127,7 +127,6 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     return tuple(reversed(result_shape))
 
 
-
 def strides_from_shape(shape: UserShape) -> UserStrides:
     """Return a contiguous stride for a shape"""
     layout = [1]
@@ -256,7 +255,7 @@ class TensorData:
 
         """
         assert list(sorted(order)) == list(
-        range(len(self.shape))
+            range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
         # Permute the shape and strides according to the order
@@ -265,7 +264,6 @@ class TensorData:
 
         # Return a new TensorData instance with the permuted shape and strides
         return TensorData(self._storage, new_shape, new_strides)
-
 
     def to_string(self) -> str:
         """Convert to string"""

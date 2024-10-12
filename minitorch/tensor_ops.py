@@ -280,7 +280,6 @@ def tensor_map(
     return _map
 
 
-
 def tensor_zip(
     fn: Callable[[float, float], float],
 ) -> Callable[
@@ -344,7 +343,6 @@ def tensor_zip(
             out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
-
 
 
 def tensor_reduce(

@@ -158,7 +158,9 @@ class Tensor:
         """Check if all elements are non-zero along a dimension."""
         if dim is None:
             # Flatten the tensor and multiply over all elements
-            flat_self = View.apply(self.contiguous(), tensor([int(operators.prod(self.shape))]))
+            flat_self = View.apply(
+                self.contiguous(), tensor([int(operators.prod(self.shape))])
+            )
             dim_tensor = tensor([0], backend=self.backend)
             return All.apply(flat_self, dim_tensor)
         else:
@@ -323,6 +325,7 @@ class Tensor:
 
     def zeros(self, shape: Optional[UserShape] = None) -> Tensor:
         """Create a tensor of zeros with the same backend as self"""
+
         def zero(shape: UserShape) -> Tensor:
             return Tensor.make(
                 [0.0] * int(operators.prod(shape)), shape, backend=self.backend
@@ -337,6 +340,7 @@ class Tensor:
 
     def ones(self, shape: Optional[UserShape] = None) -> Tensor:
         """Create a tensor of ones with the same backend as self"""
+
         def one(shape: UserShape) -> Tensor:
             return Tensor.make(
                 [1.0] * int(operators.prod(shape)), shape, backend=self.backend
