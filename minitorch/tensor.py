@@ -106,13 +106,11 @@ class Tensor:
 
     def __add__(self, other: TensorLike) -> Tensor:
         """Element-wise addition of two tensors."""
-        other = self._ensure_tensor(other)
-        return Add.apply(self, other)
+        return Add.apply(self, self._ensure_tensor(other))
 
     def __sub__(self, other: TensorLike) -> Tensor:
         """Element-wise subtraction of two tensors."""
-        other = self._ensure_tensor(other)
-        return Add.apply(self, Neg.apply(other))
+        return Add.apply(self, -self._ensure_tensor(other))
 
     def __rsub__(self, other: TensorLike) -> Tensor:
         """Subtract self from other (reversed operands)."""
@@ -121,23 +119,19 @@ class Tensor:
 
     def __mul__(self, other: TensorLike) -> Tensor:
         """Element-wise multiplication of two tensors."""
-        other = self._ensure_tensor(other)
-        return Mul.apply(self, other)
+        return Mul.apply(self, self._ensure_tensor(other))
 
     def __lt__(self, other: TensorLike) -> Tensor:
         """Element-wise less-than comparison."""
-        other = self._ensure_tensor(other)
-        return LT.apply(self, other)
+        return LT.apply(self, self._ensure_tensor(other))
 
     def __eq__(self, other: TensorLike) -> Tensor:
         """Element-wise equality comparison."""
-        other = self._ensure_tensor(other)
-        return EQ.apply(self, other)
+        return EQ.apply(self, self._ensure_tensor(other))
 
     def __gt__(self, other: TensorLike) -> Tensor:
         """Element-wise greater-than comparison."""
-        other = self._ensure_tensor(other)
-        return LT.apply(other, self)
+        return LT.apply(self._ensure_tensor(other), self)
 
     def __neg__(self) -> Tensor:
         """Element-wise negation of the tensor."""
@@ -145,31 +139,22 @@ class Tensor:
 
     def __radd__(self, other: TensorLike) -> Tensor:
         """Element-wise addition (reversed operands)."""
-        # Addition is commutative
         return self.__add__(other)
 
     def __rmul__(self, other: TensorLike) -> Tensor:
         """Element-wise multiplication (reversed operands)."""
-        # Multiplication is commutative
         return self.__mul__(other)
 
     def all(self, dim: Optional[int] = None) -> Tensor:
         """Check if all elements are non-zero along a dimension."""
         if dim is None:
-            # Flatten the tensor and multiply over all elements
-            flat_self = View.apply(
-                self.contiguous(), tensor([int(operators.prod(self.shape))])
-            )
-            dim_tensor = tensor([0], backend=self.backend)
-            return All.apply(flat_self, dim_tensor)
+            return All.apply(self.view(self.size), self._ensure_tensor(0))
         else:
-            dim_tensor = tensor([dim], backend=self.backend)
-            return All.apply(self, dim_tensor)
+            return All.apply(self, self._ensure_tensor(dim))
 
     def is_close(self, other: TensorLike) -> Tensor:
         """Element-wise check for approximate equality."""
-        other = self._ensure_tensor(other)
-        return IsClose.apply(self, other)
+        return IsClose.apply(self, self._ensure_tensor(other))
 
     def sigmoid(self) -> Tensor:
         """Apply the sigmoid function element-wise."""
@@ -189,33 +174,25 @@ class Tensor:
 
     def sum(self, dim: Optional[int] = None) -> Tensor:
         """Sum of tensor elements over a given dimension or all dimensions if dim is None."""
-        return Sum.apply(self, dim)
+        if dim is None:
+            return Sum.apply(self.contiguous().view(self.size), self._ensure_tensor(0))
+        else:
+            return Sum.apply(self, self._ensure_tensor(dim))
 
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Mean of tensor elements over a given dimension."""
-        total = self.sum(dim)
-        if dim is None:
-            count = self.size
+        if dim is not None:
+            return self.sum(dim) / self.shape[dim]
         else:
-            count = self.shape[dim]
-        return total / count
+            return self.sum() / self.size
 
     def permute(self, *order: int) -> Tensor:
         """Permute the dimensions of the tensor."""
-        order_tensor = tensor(order, backend=self.backend)
-        return Permute.apply(self, order_tensor)
+        return Permute.apply(self, tensor(list(order)))
 
     def view(self, *shape: int) -> Tensor:
         """Return a new tensor with the same data but a different shape."""
-        # Ensure that the total number of elements remains the same
-        if int(operators.prod(shape)) != self.size:
-            raise ValueError(
-                f"Cannot view tensor of size {self.size} into shape {shape}"
-            )
-        # Ensure the tensor is contiguous in memory
-        assert self._tensor.is_contiguous(), "Tensor must be contiguous to view."
-        shape_tensor = tensor(shape, backend=self.backend)
-        return View.apply(self, shape_tensor)
+        return View.apply(self, tensor(list(shape)))
 
     def zero_grad_(self) -> None:
         """Set the gradient of the tensor to None."""
@@ -407,11 +384,10 @@ class Tensor:
 
         x = h.last_fn._backward(h.ctx, d_output)
         assert len(x) == len(h.inputs), f"Bug in function {h.last_fn}"
-        result = []
-        for inp, d_in in zip(h.inputs, x):
-            if inp is not None and d_in is not None:
-                result.append((inp, inp.expand(self._ensure_tensor(d_in))))
-        return result
+        return [
+            (inp, inp.expand(self._ensure_tensor(d_in)))
+            for inp, d_in in zip(h.inputs, x)
+        ]
 
     def backward(self, grad_output: Optional[Tensor] = None) -> None:
         """Backpropagate the gradient of the output through the function that created this variable.

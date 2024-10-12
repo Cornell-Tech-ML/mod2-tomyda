@@ -58,10 +58,12 @@ class TensorBackend:
         that implements map, zip, and reduce higher-order functions.
 
         Args:
+        ----
             ops : tensor operations object see `tensor_ops.py`
 
 
         Returns:
+        -------
             A collection of tensor functions
 
         """
@@ -113,12 +115,14 @@ class SimpleOps(TensorOps):
                     out[i, j] = fn(a[i, 0])
 
         Args:
+        ----
             fn: function from float-to-float to apply.
             a (:class:`TensorData`): tensor to map over
             out (:class:`TensorData`): optional, tensor data to fill in,
                    should broadcast with `a`
 
         Returns:
+        -------
             new tensor data
 
         """
@@ -155,11 +159,13 @@ class SimpleOps(TensorOps):
 
 
         Args:
+        ----
             fn: function from two floats-to-float to apply
             a (:class:`TensorData`): tensor to zip over
             b (:class:`TensorData`): tensor to zip over
 
         Returns:
+        -------
             :class:`TensorData` : new tensor data
 
         """
@@ -193,12 +199,14 @@ class SimpleOps(TensorOps):
                     out[1, j] = fn(out[1, j], a[i, j])
 
         Args:
+        ----
             fn: function from two floats-to-float to apply
             start: initial value for the reduction
             a (:class:`TensorData`): tensor to reduce over
             dim (int): int of dim to reduce
 
         Returns:
+        -------
             :class:`TensorData` : new tensor
 
         """
@@ -217,10 +225,41 @@ class SimpleOps(TensorOps):
 
         return ret
 
+    is_cuda = False
+
     @staticmethod
     def matrix_multiply(a: "Tensor", b: "Tensor") -> "Tensor":
-        """Matrix multiplication"""
-        raise NotImplementedError("Not implemented in this assignment")
+        """Matrix multiplication with batch support"""
+        # Ensure the inner dimensions match
+        assert (
+            a.shape[-1] == b.shape[-2]
+        ), "Inner dimensions must agree for matrix multiplication"
+
+        # Determine output shape
+        out_shape = tuple(a.shape[:-1]) + tuple(b.shape[-1:])
+        out = a.zeros(out_shape)
+
+        # Flatten batch dimensions for easier iteration
+        batch_dims = out_shape[:-2]
+        total_batches = int(operators.prod(batch_dims)) if batch_dims else 1
+
+        # Reshape tensors to combine batch dimensions
+        a_flat = a.contiguous().view(total_batches, a.shape[-2], a.shape[-1])
+        b_flat = b.contiguous().view(total_batches, b.shape[-2], b.shape[-1])
+        out_flat = out.contiguous().view(total_batches, out.shape[-2], out.shape[-1])
+
+        # Perform matrix multiplication for each batch
+        for batch_idx in range(total_batches):
+            m, n = a_flat.shape[1], a_flat.shape[2]
+            n, p = b_flat.shape[1], b_flat.shape[2]
+            for i in range(m):
+                for j in range(p):
+                    sum = 0.0
+                    for k in range(n):
+                        sum += a_flat[batch_idx, i, k] * b_flat[batch_idx, k, j]
+                    out_flat[batch_idx, i, j] = sum
+
+        return out
 
     is_cuda = False
 
@@ -247,9 +286,11 @@ def tensor_map(
       broadcast. (`in_shape` must be smaller than `out_shape`).
 
     Args:
+    ----
         fn: function from float-to-float to apply
 
     Returns:
+    -------
         Tensor map function.
 
     """
@@ -302,9 +343,11 @@ def tensor_zip(
       and `b_shape` broadcast to `out_shape`.
 
     Args:
+    ----
         fn: function mapping two floats to float to apply
 
     Returns:
+    -------
         Tensor zip function.
 
     """
@@ -355,9 +398,11 @@ def tensor_reduce(
        except with `reduce_dim` turned to size `1`
 
     Args:
+    ----
         fn: reduction function mapping two floats to float
 
     Returns:
+    -------
         Tensor reduce function.
 
     """
