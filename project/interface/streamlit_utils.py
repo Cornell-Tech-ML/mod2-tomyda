@@ -1,4 +1,5 @@
 import inspect
+from typing import Callable
 
 import streamlit as st
 
@@ -11,7 +12,7 @@ def get_image_id():
     return img_id_counter
 
 
-def get_img_tag(src, width=None):
+def get_img_tag(src: str, width: int | None = None) -> str:
     img_id = get_image_id()
     if width is not None:
         style = """
@@ -29,7 +30,7 @@ def get_img_tag(src, width=None):
     """.format(src, img_id, img_id, style)
 
 
-def render_function(fn):
+def render_function(fn: Callable) -> None:
     st.markdown(
         """
 ```python
