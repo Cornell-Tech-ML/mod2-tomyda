@@ -187,12 +187,7 @@ class Tensor:
 
     def sum(self, dim: Optional[int] = None) -> Tensor:
         """Sum of tensor elements over a given dimension or all dimensions if dim is None."""
-        if dim is None:
-            # Sum over all elements
-            return Sum.apply(self)
-        else:
-            dim_tensor = tensor([dim], backend=self.backend)
-            return Sum.apply(self, dim_tensor)
+        return Sum.apply(self, dim)
 
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Mean of tensor elements over a given dimension."""
@@ -339,6 +334,20 @@ class Tensor:
         out._type_(self.backend)
         return out
 
+    def ones(self, shape: Optional[UserShape] = None) -> Tensor:
+        """Create a tensor of ones with the same backend as self"""
+        def one(shape: UserShape) -> Tensor:
+            return Tensor.make(
+                [1.0] * int(operators.prod(shape)), shape, backend=self.backend
+            )
+
+        if shape is None:
+            out = one(self.shape)
+        else:
+            out = one(shape)
+        out._type_(self.backend)
+        return out
+
     def tuple(self) -> Tuple[Storage, Shape, Strides]:
         """Get the tensor data info as a tuple."""
         return self._tensor.tuple()
@@ -396,7 +405,7 @@ class Tensor:
         assert len(x) == len(h.inputs), f"Bug in function {h.last_fn}"
         result = []
         for inp, d_in in zip(h.inputs, x):
-            if d_in is not None:
+            if inp is not None and d_in is not None:
                 result.append((inp, inp.expand(self._ensure_tensor(d_in))))
         return result
 

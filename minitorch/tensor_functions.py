@@ -114,14 +114,14 @@ class All(Function):
         return result
 
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Optional[Tensor]]:
         """Backward pass for All function (zero gradients)."""
         saved = ctx.saved_values
         if len(saved) == 1:
             (shape,) = saved
         else:
             shape, _ = saved
-        return zeros(shape, backend=grad_output.backend)
+        return zeros(shape, backend=grad_output.backend), None
 
 class Mul(Function):
     @staticmethod
@@ -198,37 +198,41 @@ class Exp(Function):
 
 class Sum(Function):
     @staticmethod
-    def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
-        """Sum over a specified dimension or all dimensions if dim is None."""
+    def forward(ctx: Context, t1: Tensor, dim: Optional[int]) -> Tensor:
+        """Forward pass for sum"""
+        ctx.save_for_backward(t1.shape, dim)
         if dim is None:
-            # Sum over all elements
-            ctx.save_for_backward(t1.shape)
-            total = t1.f.add_reduce(t1.contiguous().view(int(operators.prod(t1.shape))), 0)
-            return total
-        else:
-            dim_int = int(dim.item())
-            ctx.save_for_backward(t1.shape, dim_int)
-            return t1.f.add_reduce(t1, dim_int)
+            # Reduce over all dimensions
+            t1 = t1.contiguous().view(int(operators.prod(t1.shape)))
+            dim = 0
+        out = t1.f.add_reduce(t1, dim)
+        return out
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """Backward pass for the sum function."""
-        saved = ctx.saved_values
-        if len(saved) == 1:
-            # Sum over all elements
-            (shape,) = saved
-            # Expand grad_output to match the original shape
-            grad_input = grad_output + zeros(shape, backend=grad_output.backend)
-            return grad_input
+        """Backward pass for sum"""
+        t1_shape, dim = ctx.saved_values
+        if dim is None:
+            # Expand grad_output to the original shape
+            return grad_output * minitorch.ones(t1_shape, backend=grad_output.backend)
         else:
-            shape, dim = saved
-            # Reshape grad_output to add back the reduced dimension
-            grad_shape = list(grad_output.shape)
-            grad_shape.insert(dim, 1)
-            grad_output_reshaped = grad_output.contiguous().view(*grad_shape)
-            # Use broadcasting to expand grad_output_reshaped to the original shape
-            grad_input = grad_output_reshaped + zeros(shape, backend=grad_output.backend)
-            return grad_input
+            # Adjust grad_output shape and expand
+            shape = list(t1_shape)
+            shape[dim] = 1
+            grad_output = grad_output.view(*shape)
+            return grad_output * minitorch.ones(t1_shape, backend=grad_output.backend)
+
+    @classmethod
+    def apply(cls, t1: Tensor, dim: Optional[int] = None) -> Tensor:
+        """Custom apply method to handle dim as an int"""
+        need_grad = t1.requires_grad()
+        ctx = Context(not need_grad)
+        raw_t1 = t1.detach()
+        c = cls.forward(ctx, raw_t1, dim)
+        back = None
+        if need_grad:
+            back = minitorch.History(cls, ctx, (t1,))
+        return minitorch.Tensor(c._tensor, back, backend=t1.backend)
 
 
 class LT(Function):
@@ -294,6 +298,7 @@ class Permute(Function):
             inverse_order[j] = i
         grad_input = grad_output._new(grad_output._tensor.permute(*inverse_order))
         return grad_input, None
+
 
 class View(Function):
     @staticmethod
@@ -371,6 +376,22 @@ def zeros(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
         [0.0] * int(operators.prod(shape)), shape, backend=backend
     )
 
+def ones(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
+    """Produce a zero tensor of size `shape`.
+
+    Args:
+    ----
+        shape : shape of tensor
+        backend : tensor backend
+
+    Returns:
+    -------
+        new tensor
+
+    """
+    return minitorch.Tensor.make(
+        [1.0] * int(operators.prod(shape)), shape, backend=backend
+    )
 
 def rand(
     shape: UserShape,
